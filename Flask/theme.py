@@ -42,15 +42,19 @@ def minutes(value, fallback):
     return hour * 60 + minute
 
 
+def theme_now(settings):
+    zone = settings.get('timezone', '').strip()
+    try:
+        return datetime.now(ZoneInfo(zone)) if zone else datetime.now().astimezone()
+    except (ZoneInfoNotFoundError, ValueError):
+        return datetime.now().astimezone()
+
+
 def selected_theme(settings):
     # Old configurations without a mode retain their manually selected theme.
     if settings.get('mode', 'manual').strip().lower() != 'auto':
         return theme_name(settings.get('name', 'macos'), 'macos-light')
-    zone = settings.get('timezone', '').strip()
-    try:
-        now = datetime.now(ZoneInfo(zone)) if zone else datetime.now().astimezone()
-    except (ZoneInfoNotFoundError, ValueError):
-        now = datetime.now().astimezone()
+    now = theme_now(settings)
     start = minutes(settings.get('light_start', '06:00').strip(), '06:00')
     end = minutes(settings.get('dark_start', '18:00').strip(), '18:00')
     current = now.hour * 60 + now.minute
@@ -93,8 +97,14 @@ h1 { letter-spacing: -.035em; font-weight: 700; }
 .controls .primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px #00000018; }
 .connect { background: var(--accent); color: #fff; border-radius: 12px; }
 progress, progress::-webkit-progress-bar { border-radius: 8px; }
+.clock-time { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 200; letter-spacing: -.065em; }
+.clock-date { text-transform: none; letter-spacing: -.015em; font-weight: 500; }
+.clock-accent { width: 40px; height: 5px; border-radius: 8px; }
+#screensaver { background: radial-gradient(ellipse at 50% 35%, var(--surface) 0%, var(--background) 75%); }
+
 '''
         radius = settings.get('artwork_radius', '').strip()
         if radius.isascii() and radius.isdigit() and 0 <= int(radius) <= 48:
             css += f'.artwork{{border-radius:{int(radius)}px;}}'
-        return Response(css, mimetype='text/css', headers={'Cache-Control': 'no-store'})
+        return Response(css, mimetype='text/css', headers={'Cache-Control': 'no-store',
+                                                          'X-Clock-Time': theme_now(settings).isoformat()})

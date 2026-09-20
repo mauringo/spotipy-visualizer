@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/player.css">
   <link id="theme-styles" rel="stylesheet" href="/theme.css">
   <script src="/static/lucide.min.js" defer></script>
+  <script src="/static/screensaver.js" defer></script>
   <script src="/static/player.js" defer></script>
 </head>
 <body>
@@ -39,5 +40,13 @@
       <p id="status" role="status" aria-live="polite"></p>
     </section>
   </main>
+  <section id="screensaver" role="dialog" aria-modal="true" aria-label="Clock screensaver. Tap or press any key to return to the player." tabindex="-1" hidden>
+    <div class="clock-face">
+      <p id="clock-date" class="clock-date"></p>
+      <time id="clock-time" class="clock-time"></time>
+      <span class="clock-accent" aria-hidden="true"></span>
+    </div>
+    <p class="clock-hint">Tap or press any key to return</p>
+  </section>
 </body>
 </html>

@@ -1,5 +1,5 @@
 name: spotipy-visualizer
-version: '1.0.3'
+version: '1.0.4'
 base: core26
 platforms:
   amd64:
@@ -54,6 +54,7 @@ parts:
     stage:
       - -bin/Flask/theme.conf
       - -bin/Flask/spotify.ini
+      - -bin/Flask/.spotify-rate-limit.json
       - -bin/Flask/.spotify-token.json
       - -bin/Flask/.spotify-authorization.json
       - -bin/Flask/.session-key

@@ -120,9 +120,11 @@ class PlayerTests(unittest.TestCase):
             self.web.get('/api/playback')
             spotify.current_playback.assert_called_once()
             for action, method in [('next', 'next_track'), ('previous', 'previous_track'), ('play', 'start_playback'), ('pause', 'pause_playback')]:
+                self.player.control_at = -float('inf')
                 self.assertEqual(self.web.post('/api/control/' + action, headers=HEADERS).status_code, 200)
                 getattr(spotify, method).assert_called_once()
             for liked, method in [(True, 'current_user_saved_tracks_add'), (False, 'current_user_saved_tracks_delete')]:
+                self.player.control_at = -float('inf')
                 self.assertEqual(self.web.post('/api/control/like', headers=HEADERS, json={'uri': URI, 'liked': liked}).status_code, 200)
                 getattr(spotify, method).assert_called_once_with([URI])
             self.assertEqual(self.web.post('/api/control/like', headers=HEADERS, json={'uri': URI, 'liked': 'false'}).status_code, 400)
@@ -134,6 +136,7 @@ class PlayerTests(unittest.TestCase):
         with patch.object(self.player, 'client', return_value=spotify):
             self.assertTrue(self.web.get('/api/playback').json['shuffle'])
             for state in (False, True):
+                self.player.control_at = -float('inf')
                 response = self.web.post('/api/control/shuffle', headers=HEADERS, json={'state': state})
                 self.assertEqual(response.status_code, 200)
                 spotify.shuffle.assert_called_with(state)

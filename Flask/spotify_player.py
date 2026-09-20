@@ -1,3 +1,5 @@
+from collections import deque
+import math
 import configparser
 import functools
 import json
@@ -10,6 +12,7 @@ import time
 from urllib.parse import urlsplit
 
 from flask import jsonify, redirect, request, session
+from spotify_config import tuning, upgraded_config
 import requests
 import spotipy
 from spotipy.cache_handler import CacheHandler
@@ -48,6 +51,9 @@ def initialize(data_dir):
     config = data_dir / 'spotify.ini'
     if not config.exists():
         private_write(config, TEMPLATE)
+    updated = upgraded_config(config)
+    if updated is not None:
+        private_write(config, updated)
     config.chmod(0o600)
     key = data_dir / '.session-key'
     if not key.exists():
@@ -71,8 +77,9 @@ class PrivateCache(CacheHandler):
 
 
 class PlayerError(Exception):
-    def __init__(self, message, status=400, state='error'):
+    def __init__(self, message, status=400, state='error', retry_after=0):
         self.message, self.status, self.state = message, status, state
+        self.retry_after = retry_after
 
 
 class Player:
@@ -82,6 +89,73 @@ class Player:
         self.snapshot = None
         self.snapshot_at = 0
         self.retry_at = 0
+        self.calls = deque()
+        self.control_at = -float('inf')
+        self.liked = {}
+        self.backoff = 1
+        self.cooldown_file = data_dir / '.spotify-rate-limit.json'
+        try:
+            saved = json.loads(self.cooldown_file.read_text())
+            remaining = float(saved['until']) - time.time()
+            if math.isfinite(remaining) and remaining > 0:
+                self.retry_at = time.monotonic() + remaining
+                self.backoff = max(1, min(8, int(saved.get('backoff', 1))))
+        except (OSError, ValueError, KeyError, TypeError, OverflowError):
+            pass
+
+    def settings(self):
+        return tuning(self.data_dir / 'spotify.ini')
+
+    def check_cooldown(self):
+        remaining = self.retry_at - time.monotonic()
+        if remaining > 0:
+            raise PlayerError('Spotify is cooling down. Playback will refresh automatically.',
+                              429, 'rate_limited', math.ceil(remaining))
+
+    def budget_wait(self):
+        now = time.monotonic()
+        while self.calls and now - self.calls[0] >= 30:
+            self.calls.popleft()
+        limit = self.settings()['max_requests_per_30_seconds']
+        return max(0, self.calls[-limit] + 30 - now) if len(self.calls) >= limit else 0
+
+    def call(self, method, *args):
+        self.check_cooldown()
+        wait = self.budget_wait()
+        if wait:
+            raise PlayerError('Request budget reached. Please wait before trying again.',
+                              429, 'throttled', math.ceil(wait))
+        self.calls.append(time.monotonic())
+        return method(*args)
+
+    def rate_limited(self, headers):
+        settings = self.settings()
+        fallback = settings['retry_after_fallback_seconds'] * self.backoff
+        try:
+            value = next((v for k, v in (headers or {}).items() if k.lower() == 'retry-after'), None)
+            delay = float(value)
+            if not math.isfinite(delay) or delay < 0:
+                raise ValueError()
+        except (TypeError, ValueError):
+            delay = fallback
+        delay = math.ceil(delay) + settings['retry_after_buffer_seconds']
+        self.backoff = min(8, self.backoff * 2)
+        self.retry_at = time.monotonic() + delay
+        private_write(self.cooldown_file, json.dumps({'until': time.time() + delay, 'backoff': self.backoff}))
+        return delay
+
+    def poll_seconds(self):
+        settings = self.settings()
+        key = 'playback_poll_seconds' if self.snapshot and self.snapshot['playing'] else 'idle_poll_seconds'
+        return settings[key] * self.backoff
+
+    def cached_playback(self):
+        result = dict(self.snapshot)
+        age = max(0, time.monotonic() - self.snapshot_at)
+        if result['playing']:
+            result['progress_ms'] = min(result['duration_ms'], result['progress_ms'] + int(age * 1000))
+        result['poll_after_ms'] = math.ceil(max(1, self.poll_seconds() - age) * 1000)
+        return result
 
     def oauth(self):
         config = configparser.ConfigParser(interpolation=None)
@@ -107,8 +181,7 @@ class Player:
                             requests_timeout=10)
 
     def client(self):
-        if time.monotonic() < self.retry_at:
-            raise PlayerError('Spotify is rate limiting requests. Retrying shortly.', 429)
+        self.check_cooldown()
         oauth = self.oauth()
         token = oauth.validate_token(oauth.cache_handler.get_cached_token())
         if not token:
@@ -117,16 +190,27 @@ class Player:
                              status_retries=0)
 
     def playback(self):
+        self.check_cooldown()
+        if self.snapshot is not None and time.monotonic() - self.snapshot_at < self.poll_seconds():
+            return self.cached_playback()
         client = self.client()
-        if self.snapshot is not None and time.monotonic() - self.snapshot_at < 3:
-            return self.snapshot
-        playback = client.current_playback() or {}
+        playback = self.call(client.current_playback) or {}
         item = playback.get('item') or {}
         album = item.get('album') or item.get('show') or {}
         images = album.get('images') or item.get('images') or []
         uri = item.get('uri', '')
         can_like = item.get('type') == 'track' and not item.get('is_local') and bool(uri)
         device = playback.get('device') or {}
+        liked = None
+        if can_like:
+            cached = self.liked.get(uri)
+            if cached:
+                liked = cached[0]
+            if (not cached or time.monotonic() - cached[1] >= self.settings()['liked_cache_seconds']) and not self.budget_wait():
+                liked = self.call(client.current_user_saved_tracks_contains, [uri])[0]
+                if len(self.liked) >= 256:
+                    self.liked.pop(next(iter(self.liked)))
+                self.liked[uri] = (liked, time.monotonic())
         self.snapshot = {
             'state': 'ready' if item else 'idle',
             'name': item.get('name', 'Nothing playing'),
@@ -141,11 +225,11 @@ class Player:
             'device': device.get('name', ''),
             'controllable': bool(device) and not device.get('is_restricted', False),
             'disallows': (playback.get('actions') or {}).get('disallows', {}),
-            'can_like': can_like,
-            'liked': client.current_user_saved_tracks_contains([uri])[0] if can_like else False,
+            'can_like': can_like and liked is not None,
+            'liked': bool(liked),
         }
         self.snapshot_at = time.monotonic()
-        return self.snapshot
+        return self.cached_playback()
 
 
 def register_player(app, data_dir):
@@ -161,7 +245,10 @@ def register_player(app, data_dir):
                 try:
                     return fn(*args, **kwargs)
                 except PlayerError as error:
-                    return jsonify(state=error.state, error=error.message), error.status
+                    response = jsonify(state=error.state, error=error.message, retry_after_seconds=error.retry_after)
+                    if error.retry_after:
+                        response.headers['Retry-After'] = str(error.retry_after)
+                    return response, error.status
                 except SpotifyOauthError:
                     return jsonify(state='authorization_required', error='Spotify authorization failed. Check your credentials and reconnect.'), 401
                 except spotipy.SpotifyException as error:
@@ -171,11 +258,10 @@ def register_player(app, data_dir):
                                 404: 'No active Spotify device. Start playback in Spotify.',
                                 429: 'Spotify is rate limiting requests. Retrying shortly.'}
                     if status == 429:
-                        try:
-                            delay = max(1, int((error.headers or {}).get('Retry-After', 30)))
-                        except (TypeError, ValueError):
-                            delay = 30
-                        player.retry_at = time.monotonic() + delay
+                        delay = player.rate_limited(error.headers)
+                        response = jsonify(state='rate_limited', error=messages[429], retry_after_seconds=delay)
+                        response.headers['Retry-After'] = str(delay)
+                        return response, 429
                     return jsonify(state='authorization_required' if status == 401 else 'error',
                                    error=messages.get(status, 'Spotify could not complete this request.')), status if status in messages else 502
                 except requests.RequestException:
@@ -223,26 +309,34 @@ def register_player(app, data_dir):
     def control(action):
         if request.headers.get('X-Spotify-Control') != '1' or (request.headers.get('Origin') and request.headers['Origin'] != request.host_url.rstrip('/')):
             raise PlayerError('Invalid control request.', 403)
-        client = player.client()
-        actions = {'previous': client.previous_track, 'next': client.next_track,
-                   'play': client.start_playback, 'pause': client.pause_playback}
-        if action in actions:
-            actions[action]()
-        elif action == 'shuffle':
-            body = request.get_json(silent=True) or {}
+        body = request.get_json(silent=True) or {}
+        actions = {'previous': 'previous_track', 'next': 'next_track',
+                   'play': 'start_playback', 'pause': 'pause_playback'}
+        if action == 'shuffle':
             if not isinstance(body, dict) or type(body.get('state')) is not bool:
                 raise PlayerError('A shuffle state boolean is required.')
-            client.shuffle(body['state'])
         elif action == 'like':
-            body = request.get_json(silent=True) or {}
             if not isinstance(body, dict) or not re.fullmatch(r'spotify:track:[A-Za-z0-9]{22}', str(body.get('uri', ''))) or type(body.get('liked')) is not bool:
                 raise PlayerError('A track URI and liked boolean are required.')
-            method = client.current_user_saved_tracks_add if body['liked'] else client.current_user_saved_tracks_delete
-            method([body['uri']])
-        else:
+        elif action not in actions:
             raise PlayerError('Unknown action.', 404)
+        player.check_cooldown()
+        wait = player.settings()['control_interval_seconds'] - (time.monotonic() - player.control_at)
+        if wait > 0:
+            raise PlayerError('Please wait before the next control command.', 429, 'throttled', math.ceil(wait))
+        client = player.client()
+        if action in actions:
+            player.call(getattr(client, actions[action]))
+        elif action == 'shuffle':
+            player.call(client.shuffle, body['state'])
+        else:
+            method = client.current_user_saved_tracks_add if body['liked'] else client.current_user_saved_tracks_delete
+            player.call(method, [body['uri']])
+            player.liked[body['uri']] = (body['liked'], time.monotonic())
+        player.control_at = time.monotonic()
         player.snapshot = None
-        return jsonify(ok=True)
+        return jsonify(ok=True, poll_after_ms=2000)
+
 
 
 if __name__ == '__main__':

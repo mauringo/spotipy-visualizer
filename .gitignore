@@ -24,3 +24,5 @@ stage/
 /*_source.tar.bz2
 
 Flask/theme.conf
+
+/Flask/.spotify-rate-limit.json

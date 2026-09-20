@@ -5,6 +5,26 @@ let busy = false;
 let timer;
 let polling = false;
 let errorUntil = 0;
+let cooldownUntil = 0;
+let nextPollMs = 15000;
+
+function pollDelay(value, fallback) {
+  const delay = Number(value);
+  return Number.isFinite(delay) && delay > 0 ? Math.min(2147483647, Math.max(1000, delay)) : fallback;
+}
+function rateLimit(response, data) {
+  const seconds = Number(response.headers.get('Retry-After') || data.retry_after_seconds || 60);
+  const delay = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60000;
+  cooldownUntil = Math.max(cooldownUntil, performance.now() + delay);
+  errorUntil = Date.now() + delay;
+  $('status').textContent = data.error || 'Spotify is cooling down. Retrying automatically.';
+  screensaver.unavailable();
+  controls();
+}
+function schedulePoll(delay) {
+  clearTimeout(timer);
+  timer = setTimeout(poll, pollDelay(Math.max(delay, cooldownUntil - performance.now()), 15000));
+}
 
 function icons() { if (window.lucide) lucide.createIcons(); }
 function icon(button, name, label) {
@@ -21,16 +41,18 @@ function time(ms) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 function controls() {
-  const allowed = track?.controllable && !busy;
+  const waiting = performance.now() < cooldownUntil;
+  const allowed = track?.controllable && !busy && !waiting;
   const denied = track?.disallows || {};
   $('previous').disabled = !allowed || !!denied.skipping_prev;
   $('next').disabled = !allowed || !!denied.skipping_next;
   $('play').disabled = !allowed || !!denied[track?.playing ? 'pausing' : 'resuming'];
-  $('like').disabled = !track?.can_like || busy;
+  $('like').disabled = !track?.can_like || busy || waiting;
   $('shuffle').disabled = !allowed || !!denied.toggling_shuffle;
 }
 function render(data) {
   track = data;
+  screensaver.playback(data.playing);
   receivedAt = performance.now();
   $('connect').hidden = true;
   $('title').textContent = data.name;
@@ -62,6 +84,7 @@ function progress() {
   $('elapsed').textContent = time(position);
 }
 function failure(data) {
+  screensaver.unavailable();
   track = null;
   controls();
   $('status').textContent = data.error || 'Server unavailable. Retrying shortly.';
@@ -76,19 +99,27 @@ function failure(data) {
 }
 async function poll() {
   clearTimeout(timer);
-  if (polling || busy) { timer = setTimeout(poll, 1000); return; }
+  if (performance.now() < cooldownUntil) { schedulePoll(cooldownUntil - performance.now()); return; }
+  if (polling || busy) { schedulePoll(1000); return; }
   polling = true;
-  let delay = 4000;
+  let delay = nextPollMs;
   try {
     const response = await fetch('/api/playback', {signal: AbortSignal.timeout(15000)});
     const data = await response.json();
-    if (response.ok) render(data);
-    else { failure(data); delay = response.status === 429 ? 30000 : 8000; }
-  } catch (_) { failure({error: 'Server unavailable. Retrying shortly.'}); delay = 8000; }
-  finally { polling = false; timer = setTimeout(poll, delay); }
+    if (response.ok) {
+      nextPollMs = pollDelay(data.poll_after_ms, 15000);
+      delay = nextPollMs;
+      render(data);
+    } else if (response.status === 429) {
+      rateLimit(response, data);
+      delay = cooldownUntil - performance.now();
+    } else { failure(data); delay = 30000; }
+  } catch (_) { failure({error: 'Server unavailable. Retrying shortly.'}); delay = 30000; }
+  finally { polling = false; schedulePoll(delay); }
 }
 async function command(action, body = {}) {
-  if (busy) return;
+  if (busy || performance.now() < cooldownUntil) return;
+  let delay = 2000;
   busy = true;
   controls();
   try {
@@ -97,7 +128,9 @@ async function command(action, body = {}) {
       body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
     });
     const data = await response.json();
+    if (response.status === 429) { rateLimit(response, data); delay = cooldownUntil - performance.now(); return; }
     if (!response.ok) throw new Error(data.error);
+    delay = pollDelay(data.poll_after_ms, 2000);
     $('status').textContent = '';
     errorUntil = 0;
   } catch (error) {
@@ -106,8 +139,7 @@ async function command(action, body = {}) {
   } finally {
     busy = false;
     controls();
-    clearTimeout(timer);
-    timer = setTimeout(poll, 600);
+    schedulePoll(delay);
   }
 }
 $('previous').onclick = () => command('previous');
@@ -141,6 +173,7 @@ async function refreshTheme() {
     const response = await fetch('/theme.css', {cache: 'no-store', signal: AbortSignal.timeout(10000)});
     if (!response.ok) return;
     const css = await response.text();
+    screensaver.syncClock(response.headers.get('X-Clock-Time'));
     let style = $('theme-styles');
     if (style.tagName === 'LINK') {
       const replacement = document.createElement('style');
@@ -157,3 +190,5 @@ setInterval(refreshTheme, 30000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refreshTheme();
 });
+
+refreshTheme();

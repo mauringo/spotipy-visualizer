@@ -3,3 +3,26 @@
 client_id =
 client_secret =
 redirect_uri = http://127.0.0.1:60123/auth/callback
+
+[rate_limit]
+
+# Spotify uses an app-wide rolling 30-second window; the allowance varies by quota mode.
+# No fixed public request count guarantees freedom from 429s; endpoints may have extra limits.
+# Other apps using the same client ID also consume its allowance.
+# https://developer.spotify.com/documentation/web-api/concepts/rate-limits
+# Increase polling/cache intervals or lower the local budget if limits recur.
+# Spotify Retry-After is always honored, even when longer than configured defaults.
+# Seconds between playback reads while playing (5-3600).
+playback_poll_seconds = 15
+# Seconds between playback reads while paused or idle (5-3600).
+idle_poll_seconds = 60
+# Cache each track liked status for this many seconds (30-86400).
+liked_cache_seconds = 600
+# Local Web API budget shared by all displays and controls (2-100). Not a Spotify quota.
+max_requests_per_30_seconds = 8
+# Minimum seconds between control commands (1-60); rejected commands are not queued.
+control_interval_seconds = 2
+# Initial cooldown if a 429 has no valid Retry-After (30-86400); repeated 429s increase it.
+retry_after_fallback_seconds = 60
+# Extra seconds after Spotify Retry-After before trying again (1-60).
+retry_after_buffer_seconds = 2

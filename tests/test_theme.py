@@ -50,6 +50,17 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(selected_theme({'mode': 'auto', 'timezone': 'Europe/Rome'}), 'macos-light')
             clock.now.assert_called_once_with(ZoneInfo('Europe/Rome'))
 
+    def test_clock_uses_theme_timezone_in_manual_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = create_app(directory)
+            (Path(directory) / 'theme.conf').write_text('[theme]\nmode=manual\nname=classic-dark\ntimezone=Europe/Rome\n')
+            with patch('theme.datetime') as clock:
+                clock.now.return_value = datetime(2026, 9, 20, 6, 23, tzinfo=ZoneInfo('Europe/Rome'))
+                response = app.test_client().get('/theme.css')
+                self.assertEqual(response.headers['X-Clock-Time'], '2026-09-20T06:23:00+02:00')
+                clock.now.assert_called_once_with(ZoneInfo('Europe/Rome'))
+                self.assertIn('color-scheme:dark', response.text)
+
     def test_all_palettes_and_live_schedule_css(self):
         with tempfile.TemporaryDirectory() as directory:
             app = create_app(directory)

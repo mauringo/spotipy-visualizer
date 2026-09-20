@@ -75,3 +75,20 @@ progress::-moz-progress-bar { background: var(--accent, #1ed760); }
 }
 
 #shuffle[aria-pressed="true"] { color: var(--accent, #1ed760); background: var(--hover, #303635); }
+
+/* The clock uses the same palette as the player; scheduled CSS stays active. */
+body.screensaver-active { overflow: hidden; }
+#screensaver {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center; overflow: hidden;
+  padding: max(24px, env(safe-area-inset-top)) 24px;
+  background: var(--background, #101212); color: var(--foreground, #fafafa);
+  outline: none; cursor: none; touch-action: manipulation;
+}
+.clock-face { width: 100%; text-align: center; animation: clock-drift 120s ease-in-out infinite alternate; }
+.clock-time { display: block; font-size: min(24vw, 43svh, 240px); line-height: 1.1; font-weight: 600; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.clock-date { margin: 0 0 12px; font-size: clamp(16px, 3vw, 28px); color: var(--muted, #a8aeab); text-transform: uppercase; letter-spacing: .12em; }
+.clock-accent { display: block; width: 64px; height: 3px; margin: 24px auto 0; background: var(--accent, #1ed760); }
+.clock-hint { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); margin: 0; color: var(--muted, #a8aeab); font-size: 12px; letter-spacing: .03em; }
+@keyframes clock-drift { from { transform: translate(-1.5vw, -2svh); } to { transform: translate(1.5vw, 2svh); } }
+@media (prefers-reduced-motion: reduce) { .clock-face { animation: none; } }
