@@ -11,6 +11,8 @@ platforms:
 title: Spotipy Visualizer
 icon: snap/gui/spotipy-visualizer.svg
 contact: https://github.com/mauringo
+website: https://github.com/mauringo/spotipy-visualizer
+issues: https://github.com/mauringo/spotipy-visualizer/issues
 license: GPL-3.0-only
 summary: Fullscreen Spotify album art and playback controls
 description: |
