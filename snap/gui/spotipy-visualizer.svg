@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Spotipy Visualizer</title>
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="#101c18"/>
+  <circle cx="128" cy="128" r="91" fill="#1ed760"/>
+  <circle cx="128" cy="128" r="72" fill="none" stroke="#10291c" stroke-width="3"/>
+  <circle cx="128" cy="128" r="57" fill="none" stroke="#10291c" stroke-width="3"/>
+  <circle cx="128" cy="128" r="41" fill="#101c18"/>
+  <path d="M119 107L148 128L119 149Z" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M52 55V43H76M180 213H204V201" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

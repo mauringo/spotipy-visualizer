@@ -1,0 +1,19 @@
+#!/bin/sh
+# Ask the host desktop to open its browser, including Wayland/labwc on Pi OS.
+url="http://127.0.0.1:${PORT:-60123}"
+if [ -n "${SNAP:-}" ]; then
+    exec snapctl user-open "$url"
+fi
+if command -v xdg-open >/dev/null 2>&1 && xdg-open "$url"; then
+    exit 0
+fi
+if command -v gio >/dev/null 2>&1 && gio open "$url"; then
+    exit 0
+fi
+for browser in chromium chromium-browser firefox x-www-browser; do
+    if command -v "$browser" >/dev/null 2>&1; then
+        exec "$browser" "$url"
+    fi
+done
+printf 'Unable to launch a browser. Open %s in your desktop browser.\n' "$url" >&2
+exit 1

@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+mkdir -p "$SNAP_COMMON"
+cd "$SNAP_COMMON"
+exec "$SNAP/bin/python3" "$SNAP/bin/Flask/app.py"

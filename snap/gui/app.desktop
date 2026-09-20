@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Spotipy Visualizer
+GenericName=Music Playback Display
+Comment=Album artwork and Spotify playback controls
+Exec=spotipy-visualizer.desktop-launch
+Icon=${SNAP}/meta/gui/spotipy-visualizer.svg
+Terminal=false
+Categories=AudioVideo;Music;
+Keywords=Spotify;Music;Album;Player;Fullscreen;
+StartupNotify=false

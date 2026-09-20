@@ -1,0 +1,25 @@
+[theme]
+# auto follows the schedule; manual uses name below.
+mode = auto
+# macos-light, macos-dark, classic-light, classic-dark
+# Legacy aliases: macos = macos-light; classic = classic-dark.
+name = macos-light
+light_theme = macos-light
+dark_theme = macos-dark
+# 24-hour HH:MM. Light begins at light_start; dark begins at dark_start.
+# Equal times = light all day. Overnight light windows are supported.
+light_start = 06:00
+dark_start = 18:00
+# Blank = server/Pi local timezone, or use e.g. Europe/Rome.
+timezone =
+# Overrides apply to both scheduled themes. Changes appear within 30 seconds.
+# Optional overrides: use six-digit hex colors, e.g. #007aff.
+accent =
+background =
+foreground =
+muted =
+surface =
+border =
+hover =
+# Optional artwork corner radius in pixels (0-48).
+artwork_radius =

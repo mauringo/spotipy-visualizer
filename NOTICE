@@ -1,0 +1,19 @@
+Spotipy Visualizer
+Copyright (c) 2020-2026 mauringo
+
+The current project is distributed under the GNU General Public License,
+version 3 only (SPDX-License-Identifier: GPL-3.0-only).
+See LICENSE for the complete terms. The software is provided without warranty.
+
+Preserve this attribution and applicable copyright and license notices in
+redistributions. Modified versions must identify their changes and comply
+with the GPL's source-code and licensing requirements when distributed.
+
+Earlier releases were provided under the MIT License. Those grants remain
+valid for the copies released under MIT. The original notice is retained in
+LICENSES/legacy-MIT.txt; retain it for incorporated MIT-licensed material.
+
+Third-party software retains its own license terms. In particular, the bundled
+Lucide icons include ISC and MIT notices in Flask/static/lucide.LICENSE.
+Spotify, Apple, and album artwork rights remain with their respective owners.
+No rights to third-party artwork or trademarks are granted by this notice.

@@ -1,0 +1,73 @@
+name: spotipy-visualizer
+version: '1.0.3'
+base: core26
+platforms:
+  amd64:
+  arm64:
+  armhf:
+  ppc64el:
+  riscv64:
+  s390x:
+title: Spotipy Visualizer
+icon: snap/gui/spotipy-visualizer.svg
+contact: https://github.com/mauringo
+license: GPL-3.0-only
+summary: Fullscreen Spotify album art and playback controls
+description: |
+  Display your current Spotify album artwork, song and artist in a fullscreen
+  browser view. Like songs and control playback on your active Spotify device.
+  Touch-friendly controls suit small displays, tablets, and fullscreen kiosks.
+  View the current album, artist, song, and playback progress at a glance.
+
+  Configure Spotify developer credentials in $SNAP_COMMON/Flask/spotify.ini, then open
+  http://127.0.0.1:60123 and connect your Spotify account.
+  Configuration and authorization persist across snap refreshes.
+
+  Requires a Spotify developer app and a Spotify Premium account. Controls an
+  active Spotify device; this app does not stream audio itself.
+  This is an independent project, not affiliated with Spotify.
+confinement: strict
+grade: stable
+
+apps:
+  flask-server:
+    command: bin/runserver.wrapper
+    plugs: [network, network-bind]
+    daemon: simple
+  desktop-launch:
+    command: bin/desktop-launch
+    plugs: [desktop]
+
+parts:
+  dependencies:
+    plugin: python
+    source: .
+    python-requirements: [requirements.txt]
+    build-packages: [python3-dev, python3-venv, build-essential]
+    # core26 does not provide a Python runtime.
+    stage-packages: [python3-venv]
+  python-code:
+    source: ./Flask/
+    plugin: dump
+    organize:
+      '*': bin/Flask/
+    stage:
+      - -bin/Flask/theme.conf
+      - -bin/Flask/spotify.ini
+      - -bin/Flask/.spotify-token.json
+      - -bin/Flask/.spotify-authorization.json
+      - -bin/Flask/.session-key
+      - -bin/Flask/*.tmp
+      - -bin/Flask/__pycache__
+  shscripts:
+    source: ./shscripts/
+    plugin: dump
+    organize:
+      '*': bin/
+  legal-notices:
+    plugin: dump
+    source: .
+    stage:
+      - LICENSE
+      - NOTICE
+      - LICENSES/legacy-MIT.txt

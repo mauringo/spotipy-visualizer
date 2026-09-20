@@ -1,0 +1,26 @@
+ 
+
+# gitginore template for creating Snap packages
+# website: https://snapcraft.io/
+
+parts/
+.venv/
+.spotify-data/
+/Flask/spotify.ini
+/Flask/.spotify-token.json
+/Flask/.spotify-authorization.json
+/Flask/.session-key
+/Flask/*.tmp
+__pycache__/
+prime/
+stage/
+*.snap
+
+# Snapcraft global state tracking data(automatically generated)
+# https://forum.snapcraft.io/t/location-to-save-global-state/768
+/snap/.snapcraft/
+
+# Source archive packed by `snapcraft cleanbuild` before pushing to the LXD container
+/*_source.tar.bz2
+
+Flask/theme.conf

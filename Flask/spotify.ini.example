@@ -1,0 +1,5 @@
+# Register this exact redirect URI in your Spotify developer app.
+[spotify]
+client_id =
+client_secret =
+redirect_uri = http://127.0.0.1:60123/auth/callback

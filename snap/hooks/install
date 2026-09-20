@@ -1,0 +1,15 @@
+#!/bin/sh -e
+umask 077
+mkdir -p "$SNAP_COMMON/Flask"
+for name in spotify.ini theme.conf; do
+    if [ ! -e "$SNAP_COMMON/Flask/$name" ]; then
+        if [ -f "$SNAP_DATA/Flask/$name" ]; then
+            cp "$SNAP_DATA/Flask/$name" "$SNAP_COMMON/Flask/$name"
+        elif [ -f "$SNAP_DATA/$name" ]; then
+            cp "$SNAP_DATA/$name" "$SNAP_COMMON/Flask/$name"
+        else
+            cp "$SNAP/bin/Flask/$name.example" "$SNAP_COMMON/Flask/$name"
+        fi
+        chmod 600 "$SNAP_COMMON/Flask/$name"
+    fi
+done

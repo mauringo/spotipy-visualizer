@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotipy Visualizer</title>
+  <link rel="stylesheet" href="/static/player.css">
+  <link id="theme-styles" rel="stylesheet" href="/theme.css">
+  <script src="/static/lucide.min.js" defer></script>
+  <script src="/static/player.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="brand">Spotify <span> / Now playing</span></div>
+    <button id="fullscreen" aria-label="Enter fullscreen" title="Enter fullscreen"><i data-lucide="maximize"></i></button>
+  </header>
+  <main>
+    <div class="artwork">
+      <img id="cover" alt="" hidden>
+      <i id="placeholder" data-lucide="disc-3" aria-hidden="true"></i>
+    </div>
+    <section class="track">
+      <p id="device" class="eyebrow">Spotipy Visualizer</p>
+      <h1 id="title">Connecting...</h1>
+      <p id="artist"></p>
+      <p id="album"></p>
+      <a id="connect" class="connect" href="/auth/login" hidden>Connect Spotify <i data-lucide="arrow-up-right"></i></a>
+      <div class="timeline">
+        <progress id="progress" value="0" max="1" aria-label="Track progress"></progress>
+        <div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div>
+      </div>
+      <div class="controls">
+        <button id="like" aria-label="Like song" title="Like song" aria-pressed="false" disabled><i data-lucide="heart"></i></button>
+        <button id="previous" aria-label="Previous track" title="Previous track" disabled><i data-lucide="skip-back"></i></button>
+        <button id="play" class="primary" aria-label="Play" title="Play" disabled><i data-lucide="play"></i></button>
+        <button id="next" aria-label="Next track" title="Next track" disabled><i data-lucide="skip-forward"></i></button>
+        <button id="shuffle" aria-label="Enable shuffle" title="Enable shuffle" aria-pressed="false" disabled><i data-lucide="shuffle"></i></button>
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+</body>
+</html>
