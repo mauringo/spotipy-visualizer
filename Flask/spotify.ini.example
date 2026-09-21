@@ -5,24 +5,51 @@ client_secret =
 redirect_uri = http://127.0.0.1:60123/auth/callback
 
 [rate_limit]
-
 # Spotify uses an app-wide rolling 30-second window; the allowance varies by quota mode.
 # No fixed public request count guarantees freedom from 429s; endpoints may have extra limits.
 # Other apps using the same client ID also consume its allowance.
 # https://developer.spotify.com/documentation/web-api/concepts/rate-limits
 # Increase polling/cache intervals or lower the local budget if limits recur.
 # Spotify Retry-After is always honored, even when longer than configured defaults.
+# Suggested latency profiles (our guidance, NOT Spotify guarantees):
+# Balanced: playback_poll_seconds=15, idle_poll_seconds=60 (current defaults).
+# More responsive: playback_poll_seconds=5, idle_poll_seconds=15; higher request load.
+# Conservative: playback_poll_seconds=30, idle_poll_seconds=120; fewer requests.
+# Detection latency is roughly 0..poll interval plus network time; backoff increases it.
+# There is no documented safe requests/minute or 'fails after N hours' threshold.
+# Use the Spotify dashboard request graph and actual 429/Retry-After responses.
+# A long cooldown can look frozen; the browser shows its remaining wait.
+# Browser recovery cannot repair a crashed browser, GPU hang, or sleeping OS.
+
+# Spotify connect/read inactivity timeout per request (3-30); not a Spotify rate quota.
+spotify_request_timeout_seconds = 10
+
+# Browser response deadline (10-300); effective minimum is 6 times the Spotify timeout.
+browser_request_timeout_seconds = 60
+
+# Restart a lost browser polling timer this many seconds after its scheduled time (5-120).
+recovery_grace_seconds = 15
+
+# Wait after network/server errors before reading playback again (5-300). Never overrides Retry-After.
+network_retry_seconds = 30
+
 # Seconds between playback reads while playing (5-3600).
 playback_poll_seconds = 15
+
 # Seconds between playback reads while paused or idle (5-3600).
 idle_poll_seconds = 60
+
 # Cache each track liked status for this many seconds (30-86400).
 liked_cache_seconds = 600
+
 # Local Web API budget shared by all displays and controls (2-100). Not a Spotify quota.
 max_requests_per_30_seconds = 8
+
 # Minimum seconds between control commands (1-60); rejected commands are not queued.
 control_interval_seconds = 2
+
 # Initial cooldown if a 429 has no valid Retry-After (30-86400); repeated 429s increase it.
 retry_after_fallback_seconds = 60
+
 # Extra seconds after Spotify Retry-After before trying again (1-60).
 retry_after_buffer_seconds = 2

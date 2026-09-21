@@ -7,6 +7,60 @@ let polling = false;
 let errorUntil = 0;
 let cooldownUntil = 0;
 let nextPollMs = 15000;
+let nextPollAt = Date.now();
+let cooldownMessage = '';
+let requestTimeoutMs = 60000;
+let recoveryGraceMs = 15000;
+let networkRetryMs = 30000;
+const pendingRequests = new Set();
+
+// Bound the complete response (including its body), even if fetch ignores abort.
+async function fetchResource(url, options = {}, format = 'json') {
+  const controller = new AbortController();
+  let timeout;
+  let pending;
+  const deadline = new Promise((_, reject) => {
+    pending = {until: Date.now() + requestTimeoutMs, expire() {
+      controller.abort();
+      reject(new Error('Request timed out. Retrying automatically.'));
+    }};
+    pendingRequests.add(pending);
+    timeout = setTimeout(pending.expire, requestTimeoutMs);
+  });
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(url, {...options, cache: 'no-store', signal: controller.signal});
+        const data = await response[format]();
+        return {response, data};
+      })(), deadline,
+    ]);
+  } finally {
+    clearTimeout(timeout);
+    pendingRequests.delete(pending);
+  }
+}
+function recoverPlayer(force = false) {
+  const now = Date.now();
+  for (const pending of pendingRequests) if (now >= pending.until) pending.expire();
+  if (!polling && !busy && now >= cooldownUntil && (force || now >= nextPollAt + recoveryGraceMs)) poll();
+}
+async function refreshClientSettings() {
+  if (refreshClientSettings.running) return;
+  refreshClientSettings.running = true;
+  try {
+    const {response, data} = await fetchResource('/api/client-settings');
+    if (response.ok) {
+      requestTimeoutMs = boundedSetting(data.request_timeout_ms, 10000, 300000, requestTimeoutMs);
+      recoveryGraceMs = boundedSetting(data.recovery_grace_ms, 5000, 120000, recoveryGraceMs);
+      networkRetryMs = boundedSetting(data.network_retry_ms, 5000, 300000, networkRetryMs);
+    }
+  } catch (_) { /* Keep working with the last known settings. */ }
+  finally { refreshClientSettings.running = false; }
+}
+function boundedSetting(value, minimum, maximum, fallback) {
+  return Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
+}
 
 function pollDelay(value, fallback) {
   const delay = Number(value);
@@ -15,15 +69,22 @@ function pollDelay(value, fallback) {
 function rateLimit(response, data) {
   const seconds = Number(response.headers.get('Retry-After') || data.retry_after_seconds || 60);
   const delay = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60000;
-  cooldownUntil = Math.max(cooldownUntil, performance.now() + delay);
+  cooldownUntil = Math.max(cooldownUntil, Date.now() + delay);
   errorUntil = Date.now() + delay;
-  $('status').textContent = data.error || 'Spotify is cooling down. Retrying automatically.';
+  cooldownMessage = data.error || 'Spotify is cooling down.';
+  updateCooldownStatus();
   screensaver.unavailable();
   controls();
 }
+function updateCooldownStatus() {
+  const seconds = Math.ceil((cooldownUntil - Date.now()) / 1000);
+  if (seconds > 0) $('status').textContent = `${cooldownMessage} Next check in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.`;
+}
 function schedulePoll(delay) {
   clearTimeout(timer);
-  timer = setTimeout(poll, pollDelay(Math.max(delay, cooldownUntil - performance.now()), 15000));
+  const wait = pollDelay(Math.max(delay, cooldownUntil - Date.now()), 15000);
+  nextPollAt = Date.now() + wait;
+  timer = setTimeout(poll, wait);
 }
 
 function icons() { if (window.lucide) lucide.createIcons(); }
@@ -41,7 +102,7 @@ function time(ms) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 function controls() {
-  const waiting = performance.now() < cooldownUntil;
+  const waiting = Date.now() < cooldownUntil;
   const allowed = track?.controllable && !busy && !waiting;
   const denied = track?.disallows || {};
   $('previous').disabled = !allowed || !!denied.skipping_prev;
@@ -99,42 +160,41 @@ function failure(data) {
 }
 async function poll() {
   clearTimeout(timer);
-  if (performance.now() < cooldownUntil) { schedulePoll(cooldownUntil - performance.now()); return; }
+  if (Date.now() < cooldownUntil) { schedulePoll(cooldownUntil - Date.now()); return; }
   if (polling || busy) { schedulePoll(1000); return; }
   polling = true;
   let delay = nextPollMs;
   try {
-    const response = await fetch('/api/playback', {signal: AbortSignal.timeout(15000)});
-    const data = await response.json();
+    const {response, data} = await fetchResource('/api/playback');
     if (response.ok) {
       nextPollMs = pollDelay(data.poll_after_ms, 15000);
       delay = nextPollMs;
       render(data);
     } else if (response.status === 429) {
       rateLimit(response, data);
-      delay = cooldownUntil - performance.now();
-    } else { failure(data); delay = 30000; }
-  } catch (_) { failure({error: 'Server unavailable. Retrying shortly.'}); delay = 30000; }
+      delay = cooldownUntil - Date.now();
+    } else { failure(data); delay = networkRetryMs; }
+  } catch (_) { failure({error: 'Connection interrupted. Retrying automatically.'}); delay = networkRetryMs; }
   finally { polling = false; schedulePoll(delay); }
 }
 async function command(action, body = {}) {
-  if (busy || performance.now() < cooldownUntil) return;
+  if (busy || Date.now() < cooldownUntil) return;
   let delay = 2000;
   busy = true;
   controls();
   try {
-    const response = await fetch(`/api/control/${action}`, {
+    const {response, data} = await fetchResource(`/api/control/${action}`, {
       method: 'POST', headers: {'Content-Type': 'application/json', 'X-Spotify-Control': '1'},
-      body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
+      body: JSON.stringify(body),
     });
-    const data = await response.json();
-    if (response.status === 429) { rateLimit(response, data); delay = cooldownUntil - performance.now(); return; }
+    if (response.status === 429) { rateLimit(response, data); delay = cooldownUntil - Date.now(); return; }
     if (!response.ok) throw new Error(data.error);
     delay = pollDelay(data.poll_after_ms, 2000);
     $('status').textContent = '';
     errorUntil = 0;
   } catch (error) {
-    $('status').textContent = error.message || 'Control failed. Try again.';
+    $('status').textContent = 'Control could not be confirmed. Checking playback; the command will not be repeated.';
+    delay = networkRetryMs;
     errorUntil = Date.now() + 8000;
   } finally {
     busy = false;
@@ -170,9 +230,8 @@ async function refreshTheme() {
   if (themeRefreshing) return;
   themeRefreshing = true;
   try {
-    const response = await fetch('/theme.css', {cache: 'no-store', signal: AbortSignal.timeout(10000)});
+    const {response, data: css} = await fetchResource('/theme.css', {}, 'text');
     if (!response.ok) return;
-    const css = await response.text();
     screensaver.syncClock(response.headers.get('X-Clock-Time'));
     let style = $('theme-styles');
     if (style.tagName === 'LINK') {
@@ -188,7 +247,15 @@ async function refreshTheme() {
 }
 setInterval(refreshTheme, 30000);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) refreshTheme();
+  if (!document.hidden) { recoverPlayer(true); refreshTheme(); refreshClientSettings(); }
 });
 
 refreshTheme();
+
+// Resume immediately after restored connectivity or browser back/forward cache.
+window.addEventListener('online', () => recoverPlayer(true));
+window.addEventListener('pageshow', () => recoverPlayer(true));
+setInterval(() => recoverPlayer(), 5000);
+setInterval(updateCooldownStatus, 1000);
+setInterval(refreshClientSettings, 60000);
+refreshClientSettings();

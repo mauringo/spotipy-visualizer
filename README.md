@@ -259,6 +259,58 @@ sections are retained. Malformed configuration files are left untouched for
 manual correction. The upgrade runs when the server starts, including after a
 snap refresh; the install hook still preserves existing files.
 
+### Suggested latency profiles
+
+These are application tuning suggestions, not Spotify guarantees. Adjust the
+existing `[rate_limit]` values in `spotify.ini`:
+
+| Profile | Playing interval | Idle interval | Playing-state reads per minute, approximately |
+| --- | --- | --- | --- |
+| More responsive | 5 seconds | 15 seconds | 12 |
+| Balanced (default) | 15 seconds | 60 seconds | 4 |
+| Conservative | 30 seconds | 120 seconds | 2 |
+
+A playback change made in another Spotify app normally appears within one poll
+interval plus network time. Liked-status reads, controls, token requests, and
+other instances are additional traffic; adaptive backoff can increase these
+intervals. A 5-second interval may hit your quota sooner. Spotify publishes no
+universal requests-per-minute ceiling or number of hours until failure. Its
+rolling 30-second rate window and the actual `429`/`Retry-After` response determine
+when to back off. Use your developer dashboard's request graph when tuning.
+
+### Recovery from a display that stops updating
+
+The browser bounds both request and response-body waits, recovers missing polling
+timers, and refreshes playback when connectivity returns or the page becomes
+visible again. Late responses are discarded after timeout. Theme/configuration
+requests have the same protection. Recovery preserves the current page and
+fullscreen state; it never automatically repeats a playback control command.
+A visible countdown distinguishes a Spotify cooldown from a stuck page.
+
+The following settings are added automatically to older configurations:
+
+```ini
+# Inside the existing [rate_limit] section:
+spotify_request_timeout_seconds = 10
+browser_request_timeout_seconds = 60
+recovery_grace_seconds = 15
+network_retry_seconds = 30
+```
+
+The Spotify timeout is a per-request connect/read inactivity timeout. The browser
+uses a deadline for the complete response; its effective minimum is six times
+the Spotify timeout to allow sequential token, playback, and liked-status calls.
+The recovery check runs every five seconds and repairs an idle polling loop once
+its scheduled check is overdue by `recovery_grace_seconds`. It does not treat
+normal idle intervals, adaptive backoff, or `Retry-After` waits as a freeze.
+Recovery settings are reread by the browser every minute.
+
+These checks recover network/request stalls while JavaScript is running. If the
+browser process, graphics driver, or operating system itself has stopped,
+JavaScript cannot restart it. If the clock and all controls stop responding,
+check the Pi's power supply, browser process, and system logs; if the clock or
+countdown is still moving, check the connection/status message first.
+
 ## Configuration and storage
 
 | Setting | Default | Purpose |
@@ -351,6 +403,7 @@ Optional browser checks for the clock (requires Playwright and Chromium):
 .venv/bin/python -m pip install playwright
 .venv/bin/python tests/browser_screensaver.py
 .venv/bin/python tests/browser_rate_limits.py
+.venv/bin/python tests/browser_recovery.py
 ```
 
 These use mocked playback and an accelerated browser clock to verify the idle

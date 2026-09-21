@@ -1,5 +1,5 @@
 name: spotipy-visualizer
-version: '1.0.4'
+version: '1.0.5'
 base: core26
 platforms:
   amd64:

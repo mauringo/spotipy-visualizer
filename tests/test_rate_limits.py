@@ -151,6 +151,15 @@ class RateLimitTests(unittest.TestCase):
             self.assertTrue(response.json['can_like'])
             self.assertTrue(response.json['liked'])
 
+    def test_public_recovery_settings_are_safe_and_allow_slow_upstream(self):
+        self.configure('spotify_request_timeout_seconds=20\nbrowser_request_timeout_seconds=10\nnetwork_retry_seconds=45\n')
+        response = self.web.get('/api/client-settings')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {'request_timeout_ms': 120000, 'recovery_grace_ms': 15000, 'network_retry_ms': 45000})
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        self.client.assert_not_called()
+        self.assertNotIn('client_id', response.text)
+
     def test_invalid_controls_do_not_consume_budget(self):
         response = self.web.post('/api/control/shuffle', json={'state': 'false'}, headers=HEADERS)
         self.assertEqual(response.status_code, 400)

@@ -5,6 +5,10 @@ import re
 
 # Defaults are local safety settings, not published Spotify quotas.
 OPTIONS = {
+    'spotify_request_timeout_seconds': (10, 3, 30, 'Spotify connect/read inactivity timeout per request (3-30); not a Spotify rate quota.'),
+    'browser_request_timeout_seconds': (60, 10, 300, 'Browser response deadline (10-300); effective minimum is 6 times the Spotify timeout.'),
+    'recovery_grace_seconds': (15, 5, 120, 'Restart a lost browser polling timer this many seconds after its scheduled time (5-120).'),
+    'network_retry_seconds': (30, 5, 300, 'Wait after network/server errors before reading playback again (5-300). Never overrides Retry-After.'),
     'playback_poll_seconds': (15, 5, 3600, 'Seconds between playback reads while playing (5-3600).'),
     'idle_poll_seconds': (60, 5, 3600, 'Seconds between playback reads while paused or idle (5-3600).'),
     'liked_cache_seconds': (600, 30, 86400, 'Cache each track liked status for this many seconds (30-86400).'),
@@ -19,6 +23,15 @@ LIMIT_NOTE = '''# Spotify uses an app-wide rolling 30-second window; the allowan
 # https://developer.spotify.com/documentation/web-api/concepts/rate-limits
 # Increase polling/cache intervals or lower the local budget if limits recur.
 # Spotify Retry-After is always honored, even when longer than configured defaults.
+# Suggested latency profiles (our guidance, NOT Spotify guarantees):
+# Balanced: playback_poll_seconds=15, idle_poll_seconds=60 (current defaults).
+# More responsive: playback_poll_seconds=5, idle_poll_seconds=15; higher request load.
+# Conservative: playback_poll_seconds=30, idle_poll_seconds=120; fewer requests.
+# Detection latency is roughly 0..poll interval plus network time; backoff increases it.
+# There is no documented safe requests/minute or 'fails after N hours' threshold.
+# Use the Spotify dashboard request graph and actual 429/Retry-After responses.
+# A long cooldown can look frozen; the browser shows its remaining wait.
+# Browser recovery cannot repair a crashed browser, GPU hang, or sleeping OS.
 '''
 
 

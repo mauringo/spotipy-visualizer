@@ -178,7 +178,7 @@ class Player:
         return SpotifyOAuth(client_id=client_id, client_secret=client_secret,
                             redirect_uri=uri, scope=SCOPES, open_browser=False,
                             cache_handler=PrivateCache(self.data_dir / '.spotify-token.json'),
-                            requests_timeout=10)
+                            requests_timeout=self.settings()['spotify_request_timeout_seconds'])
 
     def client(self):
         self.check_cooldown()
@@ -186,7 +186,7 @@ class Player:
         token = oauth.validate_token(oauth.cache_handler.get_cached_token())
         if not token:
             raise PlayerError('Connect your Spotify account.', 401, 'authorization_required')
-        return spotipy.Spotify(auth=token['access_token'], requests_timeout=10, retries=0,
+        return spotipy.Spotify(auth=token['access_token'], requests_timeout=self.settings()['spotify_request_timeout_seconds'], retries=0,
                              status_retries=0)
 
     def playback(self):
@@ -273,6 +273,17 @@ def register_player(app, data_dir):
         if request.path.startswith(('/api/', '/auth/')):
             response.headers['Cache-Control'] = 'no-store'
         return response
+
+    @app.get('/api/client-settings')
+    def client_settings():
+        # Local configuration only: no Spotify request, credentials, or player lock.
+        settings = player.settings()
+        return jsonify(
+            request_timeout_ms=max(settings['browser_request_timeout_seconds'],
+                                   6 * settings['spotify_request_timeout_seconds']) * 1000,
+            recovery_grace_ms=settings['recovery_grace_seconds'] * 1000,
+            network_retry_ms=settings['network_retry_seconds'] * 1000,
+        )
 
     @app.get('/auth/login')
     @guarded
