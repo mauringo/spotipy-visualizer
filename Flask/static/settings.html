@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idle display settings · Spotipy Visualizer</title><link rel="stylesheet" href="/static/player.css"><link rel="stylesheet" href="/theme.css"><script src="/static/settings.js" defer></script></head>
+<body><header><a class="brand" href="/">← Back to player</a></header>
+<main class="settings-main"><form id="idle-settings" class="settings-card">
+<h1>Idle display</h1><p>Start on the clock immediately when no music is playing. After playback stops later, the idle display appears after the configured number of consecutive paused or stopped playback checks. All pages follow your existing light/dark theme.</p>
+<label for="idle_checks">Idle playback checks before showing the clock</label><input type="number" id="idle_checks" min="1" max="20" required>
+<small>Default: 3. Errors and Spotify cooldowns do not count. Timing depends on your Spotify polling interval; this does not add requests.</small>
+<label><input type="checkbox" id="enabled"> Enable page rotation</label>
+<label><input type="checkbox" id="show_clock"> Include clock</label>
+<label><input type="checkbox" id="show_rates"> Include Treasury yields</label>
+<label><input type="checkbox" id="show_stocks"> Include stock prices</label>
+<label for="page_seconds">Seconds per stock page</label><input type="number" id="page_seconds" min="5" max="300" required>
+<label for="rates_seconds">Seconds on the Treasury rates page</label><input type="number" id="rates_seconds" min="5" max="300" required>
+<label for="clock_seconds">Seconds on the clock per rotation</label><input type="number" id="clock_seconds" min="5" max="3600" required>
+<label for="symbols">Yahoo stock symbols</label><input id="symbols" maxlength="251" placeholder="AAPL,NVDA,OUST"><small>Comma-separated, up to 12 symbols. Apple: AAPL · Nvidia: NVDA · Ouster: OUST.</small>
+<label for="refresh_seconds">Refresh market data every (seconds)</label><input type="number" id="refresh_seconds" min="300" max="86400" required>
+<p class="settings-note">The clock defaults to 30 seconds; stocks and rates each default to 10 seconds, with separate durations. Yahoo refreshes at startup when enabled, then every 30 minutes by default. All displays share the cache; Yahoo cooldowns can extend the wait. Quotes may be delayed. The rates page shows 2Y yield futures and 5Y/10Y/30Y Treasury yield indices, not the Federal Reserve policy rate.</p>
+<h2>Text size and display recovery</h2>
+<label for="stock_text_percent">Stock text size (%)</label><input type="number" id="stock_text_percent" min="80" max="130" required>
+<label for="treasury_text_percent">Treasury text size (%)</label><input type="number" id="treasury_text_percent" min="80" max="130" required>
+<small>100% uses the current enlarged text. Text adapts to the screen; larger sizes may wrap on small displays.</small>
+<label><input type="checkbox" id="recovery_enabled"> Automatically repair stopped clock and market timers</label>
+<label for="recovery_stall_seconds">Repair after no display timer updates for (seconds)</label><input type="number" id="recovery_stall_seconds" min="5" max="120" required>
+<small>Checked every five seconds. Applies even when rotation is disabled. Network retries and API cooldowns are unchanged. A completely frozen browser still requires an external restart.</small>
+<button type="submit" id="save-settings" class="connect" disabled>Save settings</button><p id="settings-status" role="status" aria-live="polite">Loading settings…</p>
+</form>
+<form id="theme-config-form" class="settings-card">
+<h2>Theme configuration</h2><p>Edit your complete <code>theme.conf</code>, including the theme, light/dark schedule, timezone, colors, and idle display settings. Blank colors use the selected theme’s defaults.</p>
+<label for="theme-config">theme.conf</label><textarea id="theme-config" rows="28" maxlength="32768" spellcheck="false" disabled></textarea>
+<button type="submit" id="save-theme-config" class="connect" disabled>Save theme.conf</button>
+<button type="button" id="reload-theme-config" class="connect">Reload saved configuration</button>
+<p id="theme-config-status" role="status" aria-live="polite">Loading configuration…</p>
+</form></main></body></html>

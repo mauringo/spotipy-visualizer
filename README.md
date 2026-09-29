@@ -27,7 +27,7 @@ Built with **Python, Flask, and Spotipy**, the app reads playback state through 
 - Responsive layout with touch controls and a fullscreen button.
 - Four themes: macOS light/dark and classic light/dark.
 - Automatic daytime/nighttime themes with configurable hours and timezone.
-- A matching clock screensaver after five minutes of paused or stopped music.
+- A matching clock on idle startup, and after three consecutive paused/stopped playback checks later (configurable).
 - Separate Spotify credentials and appearance configuration.
 - Snap background service and desktop browser launcher, including a launch path for Raspberry Pi OS Trixie/Wayland.
 
@@ -190,21 +190,97 @@ Optional settings are `accent`, `background`, `foreground`, `muted`, `surface`, 
 
 ## Clock screensaver
 
-After five minutes of confirmed paused or stopped playback with no interaction,
-the player gives way to a large clock and date. The macOS themes use thin clock
+On startup, the first confirmed paused or stopped playback result opens the clock
+immediately (or the configured idle rotation). After music has played, three consecutive successful paused or stopped playback
+checks open it again. Set `idle_checks = 3` (1–20) in `[idle_display]` in
+`theme.conf`, or use **Settings → Idle playback checks before showing the clock**.
+Missing settings are added automatically. Errors reset the pending count;
+Spotify cooldowns never count as checks. Existing polling intervals stay unchanged,
+so three checks typically take about two to three minutes with 60-second idle polling.
+Setup and connection errors never count as confirmed idle playback. The macOS themes use thin clock
 typography and a soft background; classic themes use a bolder clock and their
 existing palette. The screensaver follows the same automatic light/dark schedule,
 color overrides, and server/configured timezone as the player.
 
 Music resuming returns to the player on the next playback poll (normally within the configured
-idle polling interval (60 seconds by default)). Tap, move the mouse, scroll, or press a key to wake it manually;
-this starts a fresh five-minute idle period. The wake-up tap does not activate a
+idle polling interval (60 seconds by default)). Tap, click, scroll, or press a key to wake it manually;
+this resets the idle-check count. The wake-up tap does not activate a
 player control. Playback and theme polling continue while the clock is visible.
-Setup and connection errors keep the player visible instead of hiding behind the
-clock. A subtle clock drift is disabled when reduced motion is requested.
+Setup and authorization errors open the player so you can reconnect. Temporary
+connection failures and Spotify cooldowns preserve an already-visible idle display;
+they do not return it to “Nothing playing.” Mouse movement alone does not dismiss it. A subtle clock drift is disabled when reduced motion is requested.
 
 The screensaver stays inside the browser and preserves fullscreen mode. It does
 not change the operating system's screen blanking or power-management settings.
+
+## Optional stocks and Treasury yields while idle
+
+Open **Settings** in the player header (or `/settings`) to enable idle-page
+rotation. The page also displays your complete `theme.conf` in an editable field,
+including theme selection, light/dark schedule, timezone, and color overrides.
+Saving validates the configuration, preserves comments, and detects conflicting
+changes made after loading. The theme updates on the settings page immediately
+and on other open displays within 30 seconds. It starts immediately on an idle startup; later it uses the same configurable idle-check
+threshold as the clock screensaver. Defaults are **disabled**, including when upgrading an existing
+installation. Enabling it rotates through the clock, one rates page, and one
+page per stock, in that order. Playback resuming or interaction wakes the player.
+
+The defaults are Apple (`AAPL`), Nvidia (`NVDA`), and Ouster (`OUST`). You can
+choose up to 12 Yahoo symbols, include/exclude the clock, rates, or stocks, and
+adjust stocks (`page_seconds`) and Treasury rates (`rates_seconds`) independently
+(default 10 seconds each, range 5–300), as well as the clock duration
+(`clock_seconds`, default 30 seconds, range 5–3600). Market data refresh is separate:
+default 1800 seconds (30 minutes), configurable from 300 to 86400 seconds, shared across browsers.
+A background worker refreshes at server startup when enabled and then on the
+configured interval, even without a browser open. Enabling rotation later starts
+the worker. Browser requests read only the shared cache; page changes never call
+Yahoo. Disabled rotation makes no new Yahoo requests (an in-flight request may finish).
+Yahoo requests are sequential; a 429 stops the batch and pauses for at least the
+configured refresh interval or Yahoo's Retry-After, whichever is longer, plus a
+small buffer. This is a conservative local policy, not a published Yahoo quota.
+The previous shipped 300-second refresh default upgrades to 1800 seconds when
+adding the clock-duration option; other valid custom refresh values are retained; old intervals below five minutes
+are raised to the new five-minute minimum.
+
+Settings are saved in the existing `theme.conf`. Upgrades add `rates_seconds`
+using your existing `page_seconds` value, preserving the current rotation timing:
+
+```ini
+[idle_display]
+enabled = false
+show_clock = true
+show_rates = true
+show_stocks = true
+page_seconds = 10
+rates_seconds = 10
+clock_seconds = 30
+refresh_seconds = 1800
+symbols = AAPL,NVDA,OUST
+```
+
+On startup, missing settings are added with comments and defaults while existing
+appearance settings and custom values are preserved. Open displays reread the
+settings within 30 seconds. The idle-display form writes only this section; the full configuration editor
+can also change the theme settings. As with
+playback controls, use it on a trusted LAN. It has no separate login.
+
+The rates page places large yields in four corners: 2Y top left, 5Y top right,
+10Y bottom left, and 30Y bottom right. The rotation continues while playback
+remains idle, including through temporary Spotify failures.
+
+The rates page uses Yahoo Finance's **2-Year Yield Futures (`2YY=F`)** and
+**5Y (`^FVX`), 10Y (`^TNX`), and 30Y (`^TYX`) Treasury yield indices**. These are
+not the Federal Reserve's policy rate; the 2Y futures series is explicitly labeled
+and is not a spot Treasury yield. See [Yahoo's 2Y series](https://finance.yahoo.com/quote/2YY%3DF/)
+and [5Y yield index](https://finance.yahoo.com/quote/%5EFVX/).
+
+Yahoo chart endpoints are accessed directly without a key. Availability may
+change and quotes may be delayed. Each card shows its quote timestamp; an older
+quote may reflect a closed market. Failures preserve cached values marked as
+cached, or display “Unavailable” when no value is available. Yahoo 429 responses
+pause refreshes. Fetches use a separate background worker and shared cache, so
+market requests do not consume Spotify's request allowance. All pages inherit
+the current macOS/classic palette and light/dark schedule.
 
 ## Spotify request limits and tuning
 
@@ -300,6 +376,27 @@ network_retry_seconds = 30
 The Spotify timeout is a per-request connect/read inactivity timeout. The browser
 uses a deadline for the complete response; its effective minimum is six times
 the Spotify timeout to allow sequential token, playback, and liked-status calls.
+The **Settings → Text size and display recovery** controls save these options in
+`theme.conf` under `[idle_display]`. Existing files automatically receive missing
+defaults while preserving your settings and comments. Open displays apply edits
+within 30 seconds, including when market rotation is disabled.
+
+```ini
+recovery_enabled = true
+recovery_stall_seconds = 5
+stock_text_percent = 100
+treasury_text_percent = 100
+```
+
+Text sizes accept 80–130%; 100% keeps the enlarged responsive default. The recovery
+threshold accepts 5–120 seconds and is checked every five seconds. This switch
+controls clock/market timer repair only; Spotify request recovery and cooldowns
+remain active. It cannot restart a completely frozen browser.
+
+The recovery check also repairs stopped clock and market-rotation timers, keeping
+the current rotation and cached quotes. Stock prices, Treasury yields and their
+labels use larger responsive text for viewing at a distance.
+
 The recovery check runs every five seconds and repairs an idle polling loop once
 its scheduled check is overdue by `recovery_grace_seconds`. It does not treat
 normal idle intervals, adaptive backoff, or `Retry-After` waits as a freeze.
@@ -354,8 +451,7 @@ optional. The desktop launcher includes support for Raspberry Pi OS Trixie sessi
 
 ### Can the display switch to a clock when Spotify is paused?
 
-Yes. After five minutes of paused or stopped playback without interaction, the
-[clock screensaver](#clock-screensaver) appears. It follows the selected theme,
+Yes. It opens immediately when startup playback is idle, or after three consecutive paused/stopped playback checks later (configurable). The [clock screensaver](#clock-screensaver) appears. It follows the selected theme,
 light/dark schedule, and timezone, and wakes when playback resumes or you interact.
 
 ### Do I need Spotify Premium and my own developer app?
@@ -404,6 +500,7 @@ Optional browser checks for the clock (requires Playwright and Chromium):
 .venv/bin/python tests/browser_screensaver.py
 .venv/bin/python tests/browser_rate_limits.py
 .venv/bin/python tests/browser_recovery.py
+.venv/bin/python tests/browser_idle_market.py
 ```
 
 These use mocked playback and an accelerated browser clock to verify the idle

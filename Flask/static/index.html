@@ -9,11 +9,13 @@
   <script src="/static/lucide.min.js" defer></script>
   <script src="/static/screensaver.js" defer></script>
   <script src="/static/player.js" defer></script>
+  <script src="/static/idle-pages.js" defer></script>
 </head>
 <body>
   <header>
     <div class="brand">Spotify <span> / Now playing</span></div>
-    <button id="fullscreen" aria-label="Enter fullscreen" title="Enter fullscreen"><i data-lucide="maximize"></i></button>
+    <div class="header-actions"><a class="settings-link" href="/settings">Settings</a>
+    <button id="fullscreen" aria-label="Enter fullscreen" title="Enter fullscreen"><i data-lucide="maximize"></i></button></div>
   </header>
   <main>
     <div class="artwork">
@@ -40,12 +42,13 @@
       <p id="status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <section id="screensaver" role="dialog" aria-modal="true" aria-label="Clock screensaver. Tap or press any key to return to the player." tabindex="-1" hidden>
+  <section id="screensaver" role="dialog" aria-modal="true" aria-label="Idle display. Tap or press any key to return to the player." tabindex="-1" hidden>
     <div class="clock-face">
       <p id="clock-date" class="clock-date"></p>
       <time id="clock-time" class="clock-time"></time>
       <span class="clock-accent" aria-hidden="true"></span>
     </div>
+    <div id="idle-market-page" hidden></div>
     <p class="clock-hint">Tap or press any key to return</p>
   </section>
 </body>

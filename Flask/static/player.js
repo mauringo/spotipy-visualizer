@@ -42,6 +42,9 @@ async function fetchResource(url, options = {}, format = 'json') {
 }
 function recoverPlayer(force = false) {
   const now = Date.now();
+  // Repair local display timers independently of network state and cooldowns.
+  if (typeof idlePages !== 'undefined') idlePages.recover();
+  progress();
   for (const pending of pendingRequests) if (now >= pending.until) pending.expire();
   if (!polling && !busy && now >= cooldownUntil && (force || now >= nextPollAt + recoveryGraceMs)) poll();
 }
@@ -145,7 +148,7 @@ function progress() {
   $('elapsed').textContent = time(position);
 }
 function failure(data) {
-  screensaver.unavailable();
+  screensaver.unavailable(data.state === 'configuration_required' || data.state === 'authorization_required');
   track = null;
   controls();
   $('status').textContent = data.error || 'Server unavailable. Retrying shortly.';

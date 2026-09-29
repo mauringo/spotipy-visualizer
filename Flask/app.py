@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from flask import Flask
 from theme import register_theme
+from idle_market import register_market
 from spotify_player import PlayerError, default_data_dir, register_player
 
 
@@ -12,6 +13,7 @@ def create_app(data_dir=None):
     data_dir = Path(data_dir) if data_dir else default_data_dir()
     register_player(app, data_dir)
     register_theme(app, data_dir)
+    register_market(app, data_dir)
 
     @app.get('/')
     def index():

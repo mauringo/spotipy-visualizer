@@ -1,16 +1,18 @@
 // Playback must be confirmed idle; failed requests never count as stopped music.
 class IdleClock {
-  constructor(delay = 5 * 60 * 1000) {
-    this.delay = delay;
-    this.idleSince = null;
+  constructor(checks = 3) {
+    this.checks = checks;
+    this.idleChecks = 0;
+    this.firstPlayback = true;
   }
-  playback(playing, now) {
-    if (playing) this.idleSince = null;
-    else if (this.idleSince === null) this.idleSince = now;
+  playback(playing) {
+    if (playing) this.idleChecks = 0;
+    else this.idleChecks = this.firstPlayback ? this.checks : Math.min(this.checks, this.idleChecks + 1);
+    this.firstPlayback = false;
   }
-  reset(now) { if (this.idleSince !== null) this.idleSince = now; }
-  unavailable() { this.idleSince = null; }
-  due(now) { return this.idleSince !== null && now - this.idleSince >= this.delay; }
+  reset() { this.idleChecks = 0; }
+  unavailable() { this.reset(); }
+  due() { return this.idleChecks >= this.checks; }
 }
 
 const screensaver = (() => {
@@ -23,6 +25,7 @@ const screensaver = (() => {
   let serverClock = null;
   let observedAt = 0;
   let offset = 0;
+  let lastTick = performance.now();
 
   function updateClock() {
     // Use the schedule's server/configured timezone, even on remote displays.
@@ -40,6 +43,7 @@ const screensaver = (() => {
     if (previousFocus?.isConnected) previousFocus.focus({preventScroll: true});
   }
   function tick() {
+    lastTick = performance.now();
     if (!idle.due(performance.now())) return;
     updateClock();
     if (!overlay.hidden) return;
@@ -66,13 +70,29 @@ const screensaver = (() => {
   }, true);
   for (const event of ['click', 'keydown', 'wheel']) document.addEventListener(event, activity, {capture: true, passive: false});
   document.addEventListener('pointermove', event => {
-    if (event.pointerType === 'mouse' && (event.movementX || event.movementY)) activity(event);
+    // Pointer jitter must not dismiss a rotating unattended display.
+    if (overlay.hidden && event.pointerType === 'mouse' && (event.movementX || event.movementY)) idle.reset(performance.now());
   }, true);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { updateClock(); tick(); } });
-  setInterval(tick, 1000);
+  let tickTimer = setInterval(tick, 1000);
   return {
+    configure(settings) {
+      const checks = settings.idle_checks;
+      if (Number.isInteger(checks) && checks >= 1 && checks <= 20) idle.checks = checks;
+    },
+    recover(stallMs = 5000) {
+      if (performance.now() - lastTick < stallMs) return;
+      clearInterval(tickTimer);
+      tickTimer = setInterval(tick, 1000);
+      tick();
+    },
     playback(playing) { idle.playback(playing, performance.now()); if (playing) hide(); tick(); },
-    unavailable() { idle.unavailable(); hide(); },
+    unavailable(force = false) {
+      // A temporary Spotify error is not evidence that music resumed.
+      if (!overlay.hidden && !force) return;
+      idle.unavailable();
+      hide();
+    },
     syncClock(iso) {
       const timestamp = Date.parse(iso);
       const match = iso?.match(/([+-])(\d{2}):(\d{2})$/);

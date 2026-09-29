@@ -92,3 +92,46 @@ body.screensaver-active { overflow: hidden; }
 .clock-hint { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); margin: 0; color: var(--muted, #a8aeab); font-size: 12px; letter-spacing: .03em; }
 @keyframes clock-drift { from { transform: translate(-1.5vw, -2svh); } to { transform: translate(1.5vw, 2svh); } }
 @media (prefers-reduced-motion: reduce) { .clock-face { animation: none; } }
+
+.header-actions { display: flex; align-items: center; gap: 16px; }
+.settings-link { padding: 12px; font-size: 14px; }
+.settings-main { display: block; max-width: 720px; min-height: auto; padding: 32px 24px; }
+.settings-card { display: grid; gap: 16px; padding-bottom: 32px; }
+.settings-card h1 { font-size: 32px; }
+.settings-card p { line-height: 1.6; margin: 0; }
+.settings-card label { display: flex; align-items: center; gap: 12px; }
+.settings-card input:not([type=checkbox]) { width: 100%; padding: 12px; border: 1px solid var(--border, #424845); border-radius: 8px; background: var(--surface, #1b201e); color: inherit; font: inherit; }
+.settings-card input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent, #1ed760); }
+.settings-card small, .settings-note { color: var(--muted, #a8aeab); }
+.settings-card .connect { width: auto; height: auto; margin: 0; border-radius: 10px; }
+#idle-market-page { text-align: center; width: min(100%, 1100px); max-height: calc(100svh - 100px); overflow: auto; }
+#idle-market-page h2 { font-size: calc((clamp(26px, 4.6vw, 54px)) * var(--market-text-scale, 1)); margin: 0 0 20px; }
+.market-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.market-card { padding: 16px; border-radius: 18px; background: var(--surface, #1b201e); }
+.market-label { color: var(--muted, #a8aeab); font-size: calc((clamp(16px, 2.5vw, 28px)) * var(--market-text-scale, 1)); margin: 0 0 12px; }
+.market-price { font-size: calc((clamp(30px, min(7.5vw, 18svh), 92px)) * var(--market-text-scale, 1)); font-weight: 500; font-variant-numeric: tabular-nums; margin: 0; overflow-wrap: anywhere; }
+.market-grid .market-price { font-size: calc((clamp(24px, 3.7vw, 52px)) * var(--market-text-scale, 1)); }
+.market-change { font-size: calc((clamp(16px, 2.2vw, 24px)) * var(--market-text-scale, 1)); color: var(--accent, #1ed760); }
+.market-asof, .market-source { color: var(--muted, #a8aeab); font-size: calc((14px) * var(--market-text-scale, 1)); line-height: 1.5; }
+@media (max-width: 700px) { .market-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .market-card { padding: 10px; } }
+
+#theme-config { width: 100%; resize: vertical; padding: 14px; border: 1px solid var(--border, #424845); border-radius: 8px; background: var(--surface, #1b201e); color: inherit; font: 13px/1.6 monospace; }
+
+/* Treasury maturities sit at the four corners, with the title in the center. */
+#idle-market-page.rates-page { position: absolute; inset: 24px 28px 64px; width: auto; max-height: none; overflow: hidden; }
+.rates-page .market-grid { height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 100px 24px; }
+.rates-page .market-card { padding: 0; background: transparent; text-align: left; align-self: start; }
+.rates-page .market-card:nth-child(even) { text-align: right; }
+.rates-page .market-card:nth-child(n+3) { align-self: end; }
+.rates-page .market-price { font-size: calc((clamp(28px, min(11vw, 19svh), 156px)) * var(--market-text-scale, 1)); line-height: 1.05; font-weight: 600; letter-spacing: -.04em; }
+.rates-page .market-label { font-size: calc((clamp(16px, 2.8vw, 32px)) * var(--market-text-scale, 1)); margin: 0 0 6px; }
+.rates-page .market-asof { margin: 8px 0 0; }
+#idle-market-page.rates-page h2 { position: absolute; top: calc(50% - 38px); left: 0; right: 0; margin: 0; font-size: calc((clamp(18px, 3vw, 36px)) * var(--market-text-scale, 1)); }
+.rates-page > .market-asof { position: absolute; top: 50%; left: 0; right: 0; margin: 0; }
+.rates-page > .market-source { position: absolute; top: calc(50% + 32px); left: 0; right: 0; margin: 0; }
+.rates-page .quote-missing { font-size: calc((clamp(20px, 4vw, 48px)) * var(--market-text-scale, 1)); letter-spacing: 0; }
+@media (max-width: 480px), (max-height: 400px) {
+  #idle-market-page.rates-page { inset: 16px 16px 56px; }
+  .rates-page .market-grid { gap: 100px 16px; }
+  .rates-page .market-asof, .rates-page .market-source { font-size: calc((11px) * var(--market-text-scale, 1)); }
+}

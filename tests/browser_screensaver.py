@@ -30,40 +30,45 @@ with tempfile.TemporaryDirectory() as directory, sync_playwright() as p:
     page.clock.install()
     page.goto('http://player.test/')
     page.wait_for_function('track !== null && !polling')
-    page.evaluate('clearTimeout(timer)')
-    page.clock.run_for(299000)
-    assert page.locator('#screensaver').is_hidden()
-    page.clock.run_for(2000)
     assert page.locator('#screensaver').is_visible()
+    def check_idle(count=3):
+        for index in range(count):
+            page.evaluate('poll()')
+            assert page.locator('#screensaver').is_visible() == (index == count - 1)
+
+    page.keyboard.press('Space')
+    assert page.locator('#screensaver').is_hidden()
+    check_idle()
     assert page.locator('main').evaluate('(node) => node.inert')
     assert page.locator('#clock-time').inner_text()
     page.screenshot(path='/tmp/clock-macos-light.png')
-    page.keyboard.press('Space')
-    assert page.locator('#screensaver').is_hidden()
-    assert not page.locator('main').evaluate('(node) => node.inert')
-    page.clock.run_for(299000)
-    assert page.locator('#screensaver').is_hidden()
-    page.clock.run_for(2000)
-    assert page.locator('#screensaver').is_visible()
     playback['playing'] = True
     page.evaluate('poll()')
     assert page.locator('#screensaver').is_hidden()
-    page.clock.run_for(301000)
-    assert page.locator('#screensaver').is_hidden()
-    unavailable = False
     playback['playing'] = False
     page.evaluate('poll()')
-    page.clock.run_for(301000)
-    assert page.locator('#screensaver').is_visible()
+    page.evaluate('poll()')
+    assert page.locator('#screensaver').is_hidden()
+    # Failed checks break the consecutive-idle streak.
     unavailable = True
-    page.evaluate("failure({error: 'Server unavailable'})")
+    page.evaluate('poll()')
+    unavailable = False
+    check_idle()
+    unavailable = True
+    page.evaluate('poll()')
+    assert page.locator('#screensaver').is_visible()
+    page.evaluate("failure({state: 'authorization_required', error: 'Reconnect Spotify'})")
     assert page.locator('#screensaver').is_hidden()
-    page.clock.run_for(301000)
+    page.evaluate('poll()')
     assert page.locator('#screensaver').is_hidden()
     unavailable = False
-    playback['playing'] = False
-    page.evaluate('poll()')
-    page.clock.run_for(301000)
+    check_idle()
+    # Live settings can change the threshold without reloading.
+    config_path = Path(directory) / 'theme.conf'
+    config_path.write_text(config_path.read_text().replace('idle_checks = 3', 'idle_checks = 2'))
+    page.clock.run_for(31000)
+    page.keyboard.press('Space')
+    check_idle(2)
     for name in ['macos-light', 'macos-dark', 'classic-light', 'classic-dark']:
         (Path(directory) / 'theme.conf').write_text(f'[theme]\nmode=manual\nname={name}\ntimezone=Europe/Rome\n')
         page.evaluate('refreshTheme()')
@@ -78,15 +83,13 @@ with tempfile.TemporaryDirectory() as directory, sync_playwright() as p:
     # A touch gesture also wakes without propagating the click to the player.
     unavailable = False
     playback['playing'] = False
-    page.evaluate('poll()')
-    page.clock.run_for(301000)
+    check_idle(2)
     page.touchscreen.tap(512, 300)
     assert page.locator('#screensaver').is_hidden()
     page.set_viewport_size({'width': 320, 'height': 480})
     unavailable = False
     playback['playing'] = False
-    page.evaluate('poll()')
-    page.clock.run_for(301000)
+    check_idle(2)
     assert page.locator('#screensaver').is_visible()
     bounds = page.locator('#clock-time').bounding_box()
     assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= 321
@@ -94,4 +97,4 @@ with tempfile.TemporaryDirectory() as directory, sync_playwright() as p:
     assert page.locator('.clock-face').evaluate('(node) => getComputedStyle(node).animationName') == 'none'
     assert not errors, errors
     browser.close()
-print('Browser checks passed: delay, wake, resume, errors, timezone and four palettes.')
+print('Browser checks passed: consecutive idle checks, live threshold, wake, resume, errors, timezone and palettes.')

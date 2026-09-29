@@ -23,3 +23,32 @@ border =
 hover =
 # Optional artwork corner radius in pixels (0-48).
 artwork_radius =
+
+[idle_display]
+# Optional idle-page rotation. Disabled on new installs and upgrades.
+enabled = false
+# Include the clock in the rotation.
+show_clock = true
+# Include 2Y yield futures and 5Y/10Y/30Y Treasury yield indices (not Fed policy rates).
+show_rates = true
+# Include one page per Yahoo stock symbol.
+show_stocks = true
+# Seconds per stock page (5-300). Page changes do not trigger Yahoo requests.
+page_seconds = 10
+# Seconds on the Treasury rates page (5-300), independent of stocks.
+rates_seconds = 10
+# Yahoo refresh interval (300-86400 seconds); default 1800 = 30 minutes. Refresh at startup, then cache. No guaranteed Yahoo quota.
+refresh_seconds = 1800
+# Comma-separated Yahoo symbols, maximum 12. Defaults: Apple, Nvidia, Ouster.
+symbols = AAPL,NVDA,OUST
+# Seconds to show the clock per rotation (5-3600), independent of market pages.
+clock_seconds = 30
+# Repair stopped clock/market timers (cannot restart a frozen browser).
+recovery_enabled = true
+# Stall threshold (5-120 seconds), checked every 5 seconds; API retries unchanged.
+recovery_stall_seconds = 5
+# Percentage of the responsive default text size (80-130).
+stock_text_percent = 100
+treasury_text_percent = 100
+# Consecutive paused/stopped playback checks before clock (1-20); startup idle opens immediately.
+idle_checks = 3
