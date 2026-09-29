@@ -1,5 +1,5 @@
 name: spotipy-visualizer
-version: '1.0.5'
+version: '1.0.6'
 base: core26
 platforms:
   amd64:
@@ -14,20 +14,43 @@ contact: https://github.com/mauringo
 website: https://github.com/mauringo/spotipy-visualizer
 issues: https://github.com/mauringo/spotipy-visualizer/issues
 license: GPL-3.0-only
-summary: Fullscreen Spotify album art and playback controls
+summary: Spotify now playing display with album art, controls and a clock
 description: |
-  Display your current Spotify album artwork, song and artist in a fullscreen
-  browser view. Like songs and control playback on your active Spotify device.
-  Touch-friendly controls suit small displays, tablets, and fullscreen kiosks.
-  View the current album, artist, song, and playback progress at a glance.
+  Turn your Raspberry Pi touchscreen or Linux desktop into a dedicated Spotify
+  now playing display. See large album artwork, track details and playback
+  progress in a fullscreen browser view, with touch-friendly controls for your
+  active Spotify device.
 
-  Configure Spotify developer credentials in $SNAP_COMMON/Flask/spotify.ini, then open
-  http://127.0.0.1:60123 and connect your Spotify account.
-  Configuration and authorization persist across snap refreshes.
+  * Play or pause, skip tracks, toggle shuffle, and save your favourite songs.
+  * Choose macOS-inspired or classic themes, with light and dark modes.
+  * Switch themes automatically on a schedule with your preferred timezone.
+  * Show a clock when playback is idle, or enable an optional rotation of stock
+    quotes and Treasury yield data.
+  * Adjust appearance and idle-display settings from the browser.
 
-  Requires a Spotify developer app and a Spotify Premium account. Controls an
-  active Spotify device; this app does not stream audio itself.
-  This is an independent project, not affiliated with Spotify.
+  The snap runs a background service and includes a desktop browser launcher.
+  Your configuration and Spotify authorization persist across snap refreshes.
+
+  Getting started:
+
+  1. Create a Spotify developer application and register this redirect URI:
+     http://127.0.0.1:60123/auth/callback
+  2. Add your client ID, client secret and redirect URI to
+     /var/snap/spotipy-visualizer/common/Flask/spotify.ini
+  3. Open Spotipy Visualizer from your applications menu, or visit
+     http://127.0.0.1:60123 on the computer running the snap, then select
+     Connect Spotify.
+  4. Start music on your Spotify phone, computer or speaker.
+
+  Requires an internet connection, a modern browser, a Spotify developer app
+  and a Spotify Premium account with access to that app. Music plays on your
+  existing Spotify device; Spotipy Visualizer displays playback information
+  and sends playback commands. It does not stream audio.
+
+  Setup instructions, including headless Raspberry Pi authorization:
+  https://github.com/mauringo/spotipy-visualizer#connect-spotify
+
+  Spotipy Visualizer is an independent project and is not affiliated with Spotify.
 confinement: strict
 grade: stable
 
